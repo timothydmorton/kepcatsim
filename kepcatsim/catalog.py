@@ -99,34 +99,65 @@ def get_sigma(tau, cdpp, cdpp_vals):
 
 def sim_planets(theta_P, stars, 
                 rp_rng=R_RANGE, period_rng=P_RANGE,
-                mes_threshold=10):
+                mes_threshold=10, per_star=False):
     """
     Adds synthetic planets to stars
 
     stars needs to have binaries added already
+
+    if per_star is True, then the occurrence rate is
+    simulated to be *per star* and not *per system*.
     """
     lnf0, beta, alpha = theta_P
 
-    n_planets = poisson(np.exp(lnf0)).rvs(len(stars))
+    if per_star:
+        # Simulate planets for each *star*
+        n_planets_A = poisson(np.exp(lnf0)).rvs((len(stars)))
+        n_planets_B = poisson(np.exp(lnf0)).rvs((len(stars)))
+        kepid = []
+        idx = []
+        which = []
+        for nA, nB, kid, ix, mB in zip(n_planets_A, n_planets_B, 
+                                   stars.kepid, stars.index, stars.mass_B):
+            kepid += [kid]*nA
+            idx += [ix]*nA
+            which += ['A']*nA
+            if mB > 0:
+                kepid += [kid]*nB
+                idx += [ix]*nB
+                which += ['B']*nB
+        kepid = np.array(kepid)
+        which = np.array(which)
+        N = len(kepid)
 
-    kepid = []
-    idx = []
-    for n,kid,ix in zip(n_planets, stars.kepid, stars.index):
-        kepid += [kid]*n
-        idx += [ix]*n
-    kepid = np.array(kepid)
+        has_binary = stars.ix[idx, 'mass_B'].values > 0
+        A = has_binary & (which=='A')
+        B = has_binary & (which=='B')
+        single = ~has_binary
 
-    N = len(kepid)
+    else:     
+        # Simulate planets for each *system*
+        n_planets = poisson(np.exp(lnf0)).rvs(len(stars))
+
+        kepid = []
+        idx = []
+        for n,kid,ix in zip(n_planets, stars.kepid, stars.index):
+            kepid += [kid]*n
+            idx += [ix]*n
+        kepid = np.array(kepid)
+
+        N = len(kepid)
+
+        u = np.random.random(N)
+        has_binary = stars.ix[idx, 'mass_B'].values > 0
+        B = (u <= 0.5) & has_binary
+        A = (u > 0.5) & has_binary
+        single = ~has_binary
+        which = np.array(['A']*N)
+        which[B] = 'B'
 
     radius, period = draw_planet(theta_P, rp_rng=rp_rng,
                                 period_rng=period_rng, N=N)
-    u = np.random.random(N)
-    has_binary = stars.ix[idx, 'mass_B'].values > 0
-    B = (u <= 0.5) & has_binary
-    A = (u > 0.5) & has_binary
-    single = ~has_binary
-    which = np.array(['A']*N)
-    which[B] = 'B'
 
     Xr = np.ones(N)
     fluxrat = stars.ix[idx, 'flux_ratio']

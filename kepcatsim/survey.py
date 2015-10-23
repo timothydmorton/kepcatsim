@@ -11,7 +11,7 @@ from .catalog import sim_binaries, sim_planets
 
 def simulate_survey(theta, stars=None, query=BURKE_QUERY, 
                 period_rng=(50,300), rp_rng=(0.75,20),
-                mes_threshold=10):
+                mes_threshold=10, per_star=False):
     lnF0, beta, alpha, fB, gamma = theta
 
     if stars is None:
@@ -20,7 +20,7 @@ def simulate_survey(theta, stars=None, query=BURKE_QUERY,
     sim_binaries(stars, fB=fB, gamma=gamma)
     kois = sim_planets(theta[:3], stars, 
                         period_rng=period_rng, rp_rng=rp_rng,
-                        mes_threshold=mes_threshold)
+                        mes_threshold=mes_threshold, per_star=per_star)
 
     return Survey(stars, kois, period_rng, rp_rng, mes_threshold)
 
@@ -116,7 +116,3 @@ class Survey(object):
     def period_grid(self):
         return self.comp_data['period_grid']
 
-    def save_hdf(self, filename, path=''):
-        """
-        Saves survey to hdf file
-        """
